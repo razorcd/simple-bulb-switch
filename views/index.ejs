@@ -1,0 +1,48 @@
+<% layout('layout') -%>
+
+<img id="#bulbelemon" src="bulbOn.jpg" style="width:168px;height:228px;" />
+<img id="#bulbelemoff" src="bulbOff.jpg" style="width:168px;height:228px;" />
+
+<p>BulbState: <span id="#stateelem"><%= state %></span></p>
+
+
+<script>
+    var stateElem = document.getElementById("#stateelem");
+    var bulbelemon = document.getElementById("#bulbelemon");
+    var bulbelemoff = document.getElementById("#bulbelemoff");
+    
+    turnBulbOff();
+
+    function turnBulbOn() {
+        stateElem.innerHTML = "ON";
+        bulbelemon.style.display = "block";
+        bulbelemoff.style.display = "none";
+    }
+
+    function turnBulbOff() {
+        stateElem.innerHTML = "OFF";
+        bulbelemon.style.display = "none";
+        bulbelemoff.style.display = "block";
+    }
+
+    httpGetAsync("/state");    
+    setInterval(function() {
+        httpGetAsync("/state");
+    }, 2000);
+
+
+    function httpGetAsync(theUrl) {
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.onreadystatechange = function() { 
+            if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                setBulbElem(xmlHttp.responseText);
+            }
+        xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+        xmlHttp.send(null);
+    }
+
+    function setBulbElem(responseText) {
+        if (responseText === "ON") { turnBulbOn() }
+        if (responseText === "OFF") { turnBulbOff() }
+    }
+</script>
