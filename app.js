@@ -13,7 +13,10 @@ var express = require('express'),
 
 var app = express();
 
+var configs = [];
+
 app.engine('ejs', engine)
+
 
 app.configure(function() {
 
@@ -79,6 +82,34 @@ app.get("/stateOff", function(req, res) {
     theState = "OFF";
     res.send("State set to OFF");    
 })
+
+
+
+
+
+app.post("/configs", function(req,res) {
+    console.log(req.body);
+    configs.push(req.body);
+    res.status(201);
+    res.end();
+});
+
+app.get("/configs", function(req,res) {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(configs));
+});
+
+app.get("/configs/:name", function(req,res) {
+    var name = req.params["name"];
+    var foundConfig = configs.filter((config) => { 
+         return config["name"] === name;
+      }).forEach((v,i) => {
+        res.end(JSON.stringify(v));
+      });
+
+      res.status(404);
+      res.end(null);
+});
 
 
 http.createServer(app).listen(app.get('port'), function() {
