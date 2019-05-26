@@ -13,15 +13,11 @@ var express = require('express'),
 
 var app = express();
 
-var configs = [];
-
 app.engine('ejs', engine)
-
 
 app.configure(function() {
 
     app.set('template_engine', 'ejs');
-    // app.set('domain', domain);
     app.set('port', process.env.PORT || 8080);
     app.set('views', __dirname + '/views');
     app.set('view engine', template_engine);
@@ -29,14 +25,7 @@ app.configure(function() {
     app.use(express.logger('dev'));
     app.use(express.bodyParser());
     app.use(express.methodOverride());
-    // app.use(express.cookieParser('wigglybits'));
-    // app.use(express.session({
-    //     secret: 'whatever',
-    //     store: store
-    // }));
-    // app.use(express.session());
     app.use(app.router);
-    // app.use(require('less-middleware')(__dirname + '/public'));
     app.use(express.static(path.join(__dirname, 'public')));
 
     //middleware
@@ -59,59 +48,125 @@ app.configure('development', function() {
 
 app.locals.inspect = require('util').inspect;
 
-var theState = "OFF";
 
-app.get('/', function(req, res) {
-    var template_engine = req.app.settings.template_engine;
-    res.locals.session = req.session;
-    res.render('index', {
-        // title: 'Express with ' + template_engine
-        title: "App",
-        state: theState
-    });
-});
-
-app.get("/state", function(req, res) {
-    res.send(theState);
-})
-app.get("/stateOn", function(req, res) {
-    theState = "ON";
-    res.send("State set to ON   ");        
-})
-app.get("/stateOff", function(req, res) {
-    theState = "OFF";
-    res.send("State set to OFF");    
-})
+var configs = new Map(); //database
 
 
 
 
 
 app.post("/configs", function(req,res) {
-    console.log(req.body);
-    configs.push(req.body);
+    let name = req.body["name"];
+    
+    if (!name) { 
+        res.status(400);
+        res.end();
+        return;
+    }
+
+    putConfigByName(name, req.body);
+    res.status(201);
+    res.end();
+});
+
+app.put("/configs/:name", function(req,res) {
+    let name = req.body["name"];
+    var foundConfig = getConfigByName(req.params["name"]);
+    
+    if (!foundConfig) { 
+        res.status(404);
+        res.end();
+        return;
+    }
+
+    putConfigByName(name, req.body);
     res.status(201);
     res.end();
 });
 
 app.get("/configs", function(req,res) {
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(configs));
+    res.end(JSON.stringify(getConfigs()));
 });
 
 app.get("/configs/:name", function(req,res) {
-    var name = req.params["name"];
-    var foundConfig = configs.filter((config) => { 
-         return config["name"] === name;
-      }).forEach((v,i) => {
-        res.end(JSON.stringify(v));
-      });
-
-      res.status(404);
-      res.end(null);
+    var foundConfig = getConfigByName(req.params["name"]);
+    if (foundConfig) {
+        res.end(JSON.stringify(foundConfig));
+        return;
+    }
+    res.status(404);
+    res.end(null);
 });
+
+app.delete("/configs/:name", function(req,res) {
+    var foundConfig = getConfigByName(req.params["name"]);
+    if (foundConfig) {
+        deleteConfigByName(req.params["name"]);
+        res.status(202);
+        res.end(null);
+        return;
+    }
+    res.status(404);
+    res.end(null);
+});
+
+app.get("/search?", function(req,res) {
+    let name = req.query.name;
+    let data = {};
+
+    for (const key in req.query) {
+        let split = key.split(".");
+        if (split[0] === "data") {data[split[1]] = req.query[key]}
+    }
+
+    let foundConfigs = searchByNameAndDate(name, data);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(foundConfigs));
+});
+
 
 
 http.createServer(app).listen(app.get('port'), function() {
     console.log("Express server listening on port " + app.get('port'));
 });
+
+
+
+function getConfigs() {
+    console.log("configs:", configs);
+    return configs.values();
+}
+
+function getConfigByName(name) {
+    return configs.get(name);
+}
+
+function putConfigByName(name, config) {
+    configs.set(name, config);
+}
+
+function deleteConfigByName(name) {
+    configs.delete(name);
+}
+
+function searchByNameAndDate(name, data) {
+    let foundConfigs = [];
+
+    configs.forEach((configValue, nameKey) => {
+        if (name === nameKey && containsSubObject(configValue, data)) {
+            foundConfigs.push(configValue);
+        }
+    });
+
+    return foundConfigs;
+}
+
+function containsSubObject(object, subObject) {
+    let match = true;
+    Object.keys(subObject).forEach(key => {
+        if (object[key] !== subObject[key]) {match = false};
+    });
+    return match;
+}
